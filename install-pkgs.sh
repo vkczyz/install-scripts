@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Update mirrors
+pacman -S reflector
+systemctl enable reflector.timer
+systemctl start reflector.service
+
 # Install AUR helper
 pacman -S --needed git base-devel
 git clone https://aur.archlinux.org/yay.git
