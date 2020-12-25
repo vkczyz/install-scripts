@@ -24,7 +24,6 @@ waybar
 wofi
 wl-clipboard
 autotiling
-nwg-launchers
 grim
 slurp
 dex
