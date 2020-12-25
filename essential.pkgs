@@ -1,6 +1,9 @@
 base
 linux
 linux-firmware
+man-db
+man-pages
+texinfo
 dracut
 dracut-hook
 nftables
@@ -9,6 +12,6 @@ dbus-broker
 sudo
 cups
 cronie
-firejail
 dash
 dashbinsh
+neovim

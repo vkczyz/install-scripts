@@ -5,6 +5,7 @@ pipewire-alsa
 pipewire-pulse
 wireplumber
 zsh
+firejail
 udiskie
 sway
 swaylock-effects-git
@@ -17,7 +18,6 @@ grim
 slurp
 dex
 alacritty
-neovim
 nnn
 trash-cli
 neofetch

@@ -1,10 +1,6 @@
 #!/bin/sh
 
 prepare() {
-	# Determine if system is using UEFI or BIOS
-	is_uefi=0
-	ls /sys/firmware/efi/efivars > /dev/null && is_uefi=1
-
 	timedatectl set-ntp true && echo "System time synchronized!"
 }
 
@@ -26,14 +22,18 @@ download_pkgs() {
 }
 
 setup_partitions() {
+	is_uefi=0
+	ls /sys/firmware/efi/efivars > /dev/null && is_uefi=1
+
 	# TODO: disk partitioning
+	fdisk -l
+	printf 'Enter drive to install to: '; read -r drive
 
 	# Format and mount partitions
-	# TODO: don't hardcode partition numbers
-	mkfs.fat -F 32 /dev/$(root_disk)1	# boot partition
-	mkfs.ext4 /dev/$(root_disk)2	# root partition
-	mount /dev/$(root_disk)2 /mnt
-	mkdir /mnt/boot; mount /dev/$(root_disk)1 /mnt/boot
+	mkfs.fat -F 32 /dev/"$drive"1
+	mkfs.ext4 /dev/"$drive"2
+	mount /dev/"$drive"2 /mnt
+	mkdir /mnt/boot; mount /dev/"$drive"1 /mnt/boot
 
 	genfstab -U /mnt >> /mnt/etc/fstab
 }
@@ -43,27 +43,50 @@ setup_env() {
 	ln -sf /usr/share/zoneinfo/Europe/London /etc/localtime
 	hwclock --systohc
 	locale-gen
-	echo 'LANG=en_GB.UTF-8' >> /etc/locale.conf
-	echo 'KEYMAP=uk' >> /etc/vconsole.conf
-	echo '127.0.0.1	localhost\n::1		localhost\n127.0.1.1	"$hostname".localdomain "$hostname"' >> /etc/hosts
+	printf 'LANG=en_GB.UTF-8' >> /etc/locale.conf
+	printf 'KEYMAP=uk' >> /etc/vconsole.conf
+	printf 'Enter a hostname: '; read -r hostname
+	printf '127.0.0.1	localhost\n::1		localhost\n127.0.1.1	"$hostname".localdomain "$hostname"' >> /etc/hosts
 }
 
 setup_boot() {
-	# Replace mkinitcpio with dracut
+	# Replaces mkinitcpio with dracut
 	dracut /boot/initramfs-linux.img
 	dracut -N /boot/initramfs-linux-fallback.img
 	pacman -Rs mkinitcpio
-
-	# TODO: set up EFISTUB booting
 
 	# Install microcode for the appropriate vendor
 	vendor=$(cat /proc/cpuinfo | grep vendor_id | uniq | cut -d ' ' -f 2)
 	case $vendor in 
 		AuthenticAMD)
-			pacman -S amd-ucode;;
+			ucode=amd-ucode
+			;;
 		GenuineIntel)
-			pacman -S intel-ucode;;
+			ucode=intel-ucode
+			;;
 	esac
+	pacman -S $ucode
+
+	disk=/dev/sda
+	part=1
+	root_partuuid=$(blkid -o export "$disk$part" | grep PARTUUID | cut -d '=' -f 2)
+
+	# Sets up boot entry
+	# TODO: definitely double-check this
+	#efibootmgr \
+		#--disk $disk \
+		#--part $part \
+		#--create \
+		#--label 'Arch Linux' \
+		#--loader /vmlinuz-linux \
+		#--unicode \
+			#"root=PARTUUID=\"$root_partuuid\" \
+			#rw \
+			#initrd=\\"$ucode\".img \
+			#initrd=\initramfs-linux.img \
+			#sysrq_always_enabled=1" \
+			#--verbose
+
 }
 
 improve_fonts() {
@@ -85,21 +108,6 @@ install_dotfiles() {
 	git submodule update --init --recursive
 }
 
-# Record information about the system
-hostname=host
-disk=/dev/sda
-
-
-# Ask user for partitioning preferences
-fdisk -l
-read -p "Auto-partition drive? " answer
-case $answer in
-	y)
-		drive=/dev/sda;;
-	n)
-		read -p "Enter desired drive name: " drive;;
-esac
-
 prepare
 setup_partitions
 
@@ -111,10 +119,9 @@ arch-chroot /mnt
 setup_env
 enable_services
 improve_fonts
-setup_bootloader
+setup_boot
 passwd
 
 # Finish up
 exit
-umount -R /mnt
-reboot
+umount -R /mnt && reboot
