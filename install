@@ -1,6 +1,10 @@
 #!/bin/sh
 
 prepare() {
+	# Determine if system is using UEFI or BIOS
+	is_uefi=0
+	ls /sys/firmware/efi/efivars > /dev/null && is_uefi=1
+
 	timedatectl set-ntp true && echo "System time synchronized!"
 }
 
@@ -17,12 +21,8 @@ download_pkgs() {
 	makepkg -si
 	cd ..
 	rm -rf yay
-	yay -Syu yay
 
-	# Install all the applications in packages.txt
-	while read pkg
-		do yay -S $pkg
-	done < packages.txt
+	yay -Syu $(cat other.pkgs | tr '\n' ' ')
 }
 
 setup_partitions() {
@@ -104,7 +104,7 @@ prepare
 setup_partitions
 
 # System preparation
-pacstrap /mnt base linux linux-firmware
+pacstrap /mnt $(cat essential.pkgs | tr '\n' ' ')
 
 # Set up the new environment
 arch-chroot /mnt

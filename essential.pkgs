@@ -1,0 +1,14 @@
+base
+linux
+linux-firmware
+dracut
+dracut-hook
+nftables
+networkmanager
+dbus-broker
+sudo
+cups
+cronie
+firejail
+dash
+dashbinsh
