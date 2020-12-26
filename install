@@ -1,9 +1,5 @@
 #!/bin/sh
 
-prepare() {
-	timedatectl set-ntp true && echo "System time synchronized!"
-}
-
 download_pkgs() {
 	# Update mirrors
 	pacman -S reflector
@@ -68,24 +64,23 @@ setup_boot() {
 	pacman -S $ucode
 
 	disk=/dev/sda
-	part=1
-	root_partuuid=$(blkid -o export "$disk$part" | grep PARTUUID | cut -d '=' -f 2)
+	boot_part=1
+	root_part_uuid=$(blkid -o export "$disk$part" | grep PARTUUID | cut -d '=' -f 2)
 
 	# Sets up boot entry
-	# TODO: definitely double-check this
-	#efibootmgr \
-		#--disk $disk \
-		#--part $part \
-		#--create \
-		#--label 'Arch Linux' \
-		#--loader /vmlinuz-linux \
-		#--unicode \
-			#"root=PARTUUID=\"$root_partuuid\" \
-			#rw \
-			#initrd=\\"$ucode\".img \
-			#initrd=\initramfs-linux.img \
-			#sysrq_always_enabled=1" \
-			#--verbose
+	efibootmgr \
+		--disk $disk \
+		--part $boot_part \
+		--create \
+		--label 'Arch Linux' \
+		--loader /vmlinuz-linux \
+		--unicode \
+			"root=PARTUUID=$root_part_uuid \
+			rw \
+			initrd=\\$ucode.img \
+			initrd=\\initramfs-linux.img \
+			sysrq_always_enabled=1" \
+		--verbose
 
 }
 
@@ -108,13 +103,14 @@ install_dotfiles() {
 	git submodule update --init --recursive
 }
 
-prepare
-setup_partitions
+# Pre-installation setup
+timedatectl set-ntp true && echo "System time synchronized!"
 
-# System preparation
+# Set up the core system
+setup_partitions
 pacstrap /mnt $(cat essential.pkgs | tr '\n' ' ')
 
-# Set up the new environment
+# Set up the environment
 arch-chroot /mnt
 setup_env
 enable_services
